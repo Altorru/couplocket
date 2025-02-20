@@ -1,0 +1,35 @@
+import { useEffect, useState } from "react";
+import { Slot, useRouter } from "expo-router";
+import { supabase } from "../src/config/supabase";
+import { Session } from "@supabase/supabase-js";
+
+export default function Layout() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setLoading(false);
+
+      if (!session) {
+        router.replace("/");
+      }
+    };
+
+    checkAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) router.replace("/login");
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
+
+  if (loading) return null;
+
+  return <Slot />;
+}
