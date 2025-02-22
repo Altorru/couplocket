@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert } from 'react-native';
+import { View, Text, TextInput, Button, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../../src/config/supabase';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,8 @@ const FriendsScreen = () => {
   const [usernameLinked, setUsernameLinked] = useState('');
   const [userIdLinked, setUserIdLinked] = useState('');
   const [shouldReload, setShouldReload] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const router = useRouter();
 
   useEffect(() => { // Get the current connected user
@@ -30,6 +32,7 @@ const FriendsScreen = () => {
         // Handle no result of query
         if (!recipient.linked_user_id) {
           //Alert.alert('Utilisateur non lié');
+          setLoading(false)
           return;
         } else {
           const { data: userLinked, error } = await supabase
@@ -40,7 +43,9 @@ const FriendsScreen = () => {
           setUsernameLinked(userLinked.username);
           setUserIdLinked(userLinked.id);
           setUserLinked(true);
+          setLoading(false)
         }
+        //setLoading(false)
       }
     };
     fetchUser();
@@ -48,7 +53,7 @@ const FriendsScreen = () => {
 
   const linkUsers = async () => { // Handle friend add button
     if (!user) return; // Check if current connected user is defined
-
+    setLoading(true)
     // Try to get a profile with username asked by user
     const { data: recipient, error } = await supabase
       .from('users_profile')
@@ -59,12 +64,16 @@ const FriendsScreen = () => {
     // Handle no result of query
     if (error || !recipient) {
       Alert.alert('Utilisateur introuvable');
+      setUsername('')
+      setLoading(false)
       return;
     }
 
     // Handle connected user try to add itself
     if (recipient.id === user.id) {
       Alert.alert('Vous ne pouvez pas vous ajouter vous-même.');
+      setUsername('')
+      setLoading(false)
       return;
     }
 
@@ -99,6 +108,7 @@ const FriendsScreen = () => {
     if (!user) return; // Check if current connected user is defined
 
     try {
+      setLoading(true)
       // Update the current user's profile
       await supabase
         .from('users_profile')
@@ -115,6 +125,7 @@ const FriendsScreen = () => {
       setUserLinked(false);
       setUsernameLinked('');
       setUserIdLinked('');
+      setLoading(false)
       setShouldReload(!shouldReload); // Trigger re-fetch of user data
     } catch (error) {
       Alert.alert('Impossible de délier les utilisateurs');
@@ -123,8 +134,13 @@ const FriendsScreen = () => {
   };
 
   return (
-    <View>
-      {!userLinked && (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      {loading && (
+        <>
+          <ActivityIndicator size="large"/>
+        </>
+      )}
+      {loading || !userLinked && (
         <>
           <Text>Ajouter un ami</Text>
           <TextInput
@@ -136,7 +152,7 @@ const FriendsScreen = () => {
           <Button title="Envoyer l'invitation" onPress={linkUsers} />
         </>
       )}
-      {userLinked && (
+      {loading || userLinked && (
         <>
           <Text>Tu es lié à {usernameLinked}</Text>
           <Button title="Délier" onPress={unlinkUsers} />
