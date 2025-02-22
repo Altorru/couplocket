@@ -1,4 +1,4 @@
-import { View, Text, Button } from "react-native";
+import { View, Text, Button, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/config/supabase";
 import { useState, useEffect } from "react";
@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 export default function HomeScreen() {
   const router = useRouter();
   const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -19,6 +20,7 @@ export default function HomeScreen() {
         if (profile) {
           setUsername(profile.username);
         }
+        setLoading(false)
       }
     };
     fetchUser();
@@ -31,8 +33,17 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Bienvenue {username ? username : "sur ton Locket Clone"} !</Text>
-      <Button title="Se déconnecter" onPress={handleLogout} />
+      {loading && (
+        <>
+          <ActivityIndicator size="large"/>
+        </>
+      )}
+      {!loading && (
+        <>
+          <Text>Bienvenue {username ? username : "sur ton Locket Clone"} !</Text>
+          <Button title="Se déconnecter" onPress={handleLogout} />
+        </>
+      )}
     </View>
   );
 }
