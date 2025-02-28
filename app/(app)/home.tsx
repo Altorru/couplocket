@@ -1,12 +1,16 @@
 import { View, Text, Button, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../src/config/supabase";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMsg, setLoadingMsg] = useState(false);
+  const [userIdLinked, setUserIdLinked] = useState('');
+  const [lastMsg, setLastMsg] = useState("");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -18,13 +22,64 @@ export default function HomeScreen() {
           .eq("id", user.id)
           .single();
         if (profile) {
-          setUsername(profile.username);
+          setUser({ ...user, username: profile.username });
         }
-        setLoading(false)
+        setLoading(false);
       }
     };
     fetchUser();
   }, []);
+
+  const userLinked = async () => {
+    const { data: userLinked, error } = await supabase
+      .from('users_profile')
+      .select('*')
+      .eq('linked_user_id', user?.id)
+      .single();
+    if (userLinked) {
+      setUserIdLinked(userLinked.id);
+    }
+  }
+
+  const fetchLastMsg = async () => {
+    if (!user?.username) return;
+    setLoadingMsg(true);
+    await userLinked();
+
+    if (!userIdLinked) {
+      console.log("Utilisateur lié invalide");
+      setLoadingMsg(false);
+      return;
+    }
+
+    const { data: recipient, error } = await supabase
+      .from('users_profile')
+      .select('*')
+      .eq('id', userIdLinked)
+      .single();
+
+    //console.log(recipient);
+    // Handle no result of query
+    if (error || !recipient || !recipient.last_msg) {
+      setLoadingMsg(false); // Pas de dernier message
+      return;
+    } else {
+      setLastMsg(recipient.last_msg);
+      setLoadingMsg(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.username) {
+      fetchLastMsg();
+    }
+  }, [user?.username]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchLastMsg();
+    }, [user?.username])
+  );
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -33,15 +88,16 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      {loading && (
+      {loading ? (
+        <ActivityIndicator size="large" />
+      ) : (
         <>
-          <ActivityIndicator size="large"/>
-        </>
-      )}
-      {!loading && (
-        <>
-          <Text>Bienvenue {username ? username : "sur ton Locket Clone"} !</Text>
+          <Text>Bienvenue {user?.username ? user.username : "sur ton Locket Clone"} !</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text>Dernier message: {loadingMsg ? (<ActivityIndicator size="small" style={{ marginLeft: 10 }} />) : lastMsg ? lastMsg : "Aucun message"}</Text>
+          </View>
           <Button title="Se déconnecter" onPress={handleLogout} />
+          <Text>Linked user id : {userIdLinked ? userIdLinked : "N/A"}</Text>
         </>
       )}
     </View>
